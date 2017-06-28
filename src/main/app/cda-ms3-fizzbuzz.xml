@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:jetty="http://www.mulesoft.org/schema/mule/jetty" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/jetty http://www.mulesoft.org/schema/mule/jetty/current/mule-jetty.xsd">
+    <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="8081" doc:name="HTTP Listener Configuration"/>
+    <jetty:connector name="Jetty" doc:name="Jetty"/>
+    <flow name="fizzbuzz-startup-flow" processingStrategy="synchronous">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/fizzbuzz" allowedMethods="POST" doc:name="HTTP"  >
+            <http:response-builder statusCode="200"/>
+        </http:listener>
+        <json:json-to-object-transformer returnClass="java.util.ArrayList" mimeType="application/java" doc:name="convert input to ArrayList"/>
+        <expression-component doc:name="initialize response array"><![CDATA[flowVars.responseArray = new ArrayList();]]></expression-component>
+        <foreach  doc:name="For Each" collection="#[payload]">
+            <flow-ref name="is-fizz-buzz" doc:name="is-fizz-buzz"/>
+            <dw:transform-message doc:name="Transform Message">
+                <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	input: payload.input,
+	output: flowVars.out
+}]]></dw:set-payload>
+            </dw:transform-message>
+            <expression-component doc:name="add to array"><![CDATA[flowVars.responseArray.add(payload);]]></expression-component>
+        </foreach>
+        <set-payload value="#[flowVars.responseArray.toString()]" mimeType="application/json" doc:name="Set Payload"/>
+
+
+    </flow>
+    <sub-flow name="is-fizz-buzz">
+        <choice doc:name="check divisible by 7">
+            <when expression="#[payload.input % 7 == 0]">
+                <choice doc:name="is divisible by 7, check 3">
+                    <when expression="#[payload.input % 3 == 0]">
+                        <set-variable variableName="out" value="MS3 and Me" doc:name="MS3 and Me"/>
+                    </when>
+                    <otherwise>
+                        <set-variable variableName="out" value="MS3" doc:name="MS3"/>
+                    </otherwise>
+                </choice>
+            </when>
+            <otherwise>
+                <choice doc:name="is divisible by 3">
+                    <when expression="#[payload.input % 3 == 0]">
+                        <set-variable variableName="out" value="Me" doc:name="Me"/>
+                    </when>
+                    <otherwise>
+                        <set-variable variableName="out" value="" doc:name="empty string"/>
+                    </otherwise>
+                </choice>
+            </otherwise>
+        </choice>
+    </sub-flow>
+
+</mule>
